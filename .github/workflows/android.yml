@@ -65,8 +65,27 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Clave de firma permanente
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "::error::Faltan los secretos KEYSTORE_BASE64 y KEYSTORE_PASSWORD. Sin una clave fija, las actualizaciones borrarían los datos de la app. Agrégalos en Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/vintage-release.jks"
+          echo "SIGNING_KEYSTORE_PATH=$RUNNER_TEMP/vintage-release.jks" >> "$GITHUB_ENV"
+          echo "SIGNING_STORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "SIGNING_KEY_ALIAS=vintage" >> "$GITHUB_ENV"
+
       - name: Compilar (núcleo Rust + app) en un solo comando
         run: ./gradlew assembleRelease assembleDebugAndroidTest --stacktrace
+
+      - name: Verificar firma
+        run: |
+          APKSIGNER=$(ls -d ${ANDROID_HOME}/build-tools/*/ | sort -V | tail -1)apksigner
+          "$APKSIGNER" verify --print-certs app/build/outputs/apk/release/app-release.apk | grep -i "certificate SHA-256"
 
       - name: Tamaño de libvintage_core.so (objetivo < 5 MB)
         run: |
@@ -90,10 +109,12 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
-          name: Vintage Manager 1.0 (build ${{ github.run_number }})
+          name: Vintage Manager 1.0.${{ github.run_number }}
+          make_latest: true
           body: |
             Instalador para Android 8.0 o superior.
             Descarga **VintageManager.apk**, ábrelo en el teléfono y acepta "instalar apps de origen desconocido".
+            Si ya tienes la app instalada, se actualiza **conservando todos tus datos**.
           files: VintageManager.apk
 
   instrumented-tests:

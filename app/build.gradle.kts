@@ -129,20 +129,38 @@ android {
         applicationId = "cl.vintagemanager"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        // Cada compilación en GitHub sube el número de versión: Android solo
+        // acepta una actualización (conservando los datos) si el número es mayor.
+        val buildNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+        versionCode = buildNumber
+        versionName = "1.0.$buildNumber"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk {
             abiFilters += androidAbis
         }
     }
 
+    // Clave de firma permanente. Android solo instala una actualización sin borrar
+    // los datos si está firmada con la MISMA clave que la versión instalada.
+    // La clave se entrega por variables de entorno (secretos de GitHub), nunca va en el repo.
+    val releaseKeystore = System.getenv("SIGNING_KEYSTORE_PATH")?.let { file(it) }?.takeIf { it.exists() }
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = releaseKeystore
+                storePassword = System.getenv("SIGNING_STORE_PASSWORD")
+                keyAlias = System.getenv("SIGNING_KEY_ALIAS") ?: "vintage"
+                keyPassword = System.getenv("SIGNING_KEY_PASSWORD") ?: System.getenv("SIGNING_STORE_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Firmado con la clave de depuración para poder instalar el APK directamente.
-            // Para publicar en Google Play, reemplazar por una clave propia.
-            signingConfig = signingConfigs.getByName("debug")
+            // Sin clave configurada (compilación local) se usa la de depuración.
+            signingConfig = if (releaseKeystore != null) signingConfigs.getByName("release")
+            else signingConfigs.getByName("debug")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }

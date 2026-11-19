@@ -161,3 +161,23 @@ aplica prioridades, deduplicación de 24 h (salvo que la prioridad suba), horari
 (21:00–08:30), agrupación del inventario y el **tope de 3 notificaciones diarias** (si hay más,
 se combinan en un resumen InboxStyle). Solo CRÍTICA y ALTA llegan como push; el resto se ve en
 la app. Canales: `alertas_criticas` y `alertas_resumen`.
+
+## Actualizaciones sin perder datos
+
+Android instala una versión nueva **conservando los datos** solo si:
+
+1. **Está firmada con la misma clave.** La clave permanente vive en los secretos del repositorio
+   (`KEYSTORE_BASE64` y `KEYSTORE_PASSWORD`, en *Settings → Secrets and variables → Actions*).
+   Nunca se sube al código. Si faltan, el workflow se detiene en lugar de publicar un APK que
+   obligaría a desinstalar.
+2. **Tiene un número de versión mayor.** El `versionCode` es el número de compilación de GitHub,
+   así que sube solo en cada build.
+
+Además, el núcleo protege la base de datos:
+
+- Las migraciones solo **agregan** (nunca se edita ni se borra una ya publicada) y corren en una
+  transacción.
+- Antes de migrar a un esquema nuevo se guarda una copia completa
+  (`vintage_manager.db.pre-v<N>.bak`).
+- Si la base viene de una versión más nueva de la app, no se modifica.
+- El respaldo automático de Android (`allowBackup`) también guarda la base en la cuenta de Google.

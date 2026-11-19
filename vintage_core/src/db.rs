@@ -160,8 +160,23 @@ CREATE TABLE notification_log (
 CREATE INDEX idx_notification_log_date ON notification_log(sent_date);
 "#;
 
+/// Lista de migraciones. REGLA para conservar los datos de la usuaria al
+/// actualizar la app: solo se AGREGAN migraciones al final (ALTER TABLE ... ADD
+/// COLUMN, CREATE TABLE ...). Nunca se edita ni se borra una ya publicada, y
+/// nunca se borran tablas con datos.
+const MIGRATION_SCRIPTS: &[&str] = &[V1_SCHEMA];
+
 pub fn migrations() -> Migrations<'static> {
-    Migrations::new(vec![M::up(V1_SCHEMA)])
+    Migrations::new(MIGRATION_SCRIPTS.iter().map(|sql| M::up(sql)).collect())
+}
+
+/// Versión de esquema que espera esta versión de la app.
+pub fn latest_version() -> i64 {
+    MIGRATION_SCRIPTS.len() as i64
+}
+
+fn user_version(conn: &Connection) -> CoreResult<i64> {
+    Ok(conn.query_row("PRAGMA user_version", [], |r| r.get(0))?)
 }
 
 /// Abre (o crea) la base de datos y la lleva a la última versión del esquema.
@@ -171,14 +186,28 @@ pub fn open(path: &str) -> CoreResult<Connection> {
     } else {
         Connection::open(path)?
     };
-    configure(&mut conn)?;
+    configure(&mut conn, path)?;
     Ok(conn)
 }
 
-fn configure(conn: &mut Connection) -> CoreResult<()> {
+fn configure(conn: &mut Connection, path: &str) -> CoreResult<()> {
     conn.pragma_update(None, "foreign_keys", "ON")?;
     // WAL no aplica a bases en memoria; se ignora el resultado.
     let _ = conn.pragma_update(None, "journal_mode", "WAL");
+    let current = user_version(conn)?;
+    if current > latest_version() {
+        // La base viene de una versión MÁS NUEVA de la app: no se toca.
+        return Err(CoreError::Database {
+            msg: "los datos son de una versión más nueva de la app; instala la última versión".into(),
+        });
+    }
+    if current > 0 && current < latest_version() && path != ":memory:" {
+        // Copia de seguridad completa y consistente antes de migrar.
+        let backup = format!("{path}.pre-v{}.bak", latest_version());
+        let _ = std::fs::remove_file(&backup);
+        conn.execute("VACUUM INTO ?1", [&backup])?;
+    }
+    // Las migraciones corren en una transacción: si algo falla, no se pierde nada.
     migrations().to_latest(conn)?;
     Ok(())
 }
@@ -232,6 +261,38 @@ mod tests {
     #[test]
     fn migrations_are_valid() {
         migrations().validate().unwrap();
+    }
+
+    #[test]
+    fn reopening_existing_database_keeps_data() {
+        let dir = std::env::temp_dir().join(format!("vm_test_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("datos.db");
+        let path = path.to_str().unwrap();
+        {
+            let conn = open(path).unwrap();
+            conn.execute("INSERT INTO suppliers(name) VALUES ('Fardos')", []).unwrap();
+        }
+        // "Actualizar la app" = volver a abrir la misma base con el núcleo nuevo.
+        let conn = open(path).unwrap();
+        let n: i64 = conn.query_row("SELECT count(*) FROM suppliers", [], |r| r.get(0)).unwrap();
+        assert_eq!(n, 1);
+        assert_eq!(user_version(&conn).unwrap(), latest_version());
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn newer_database_is_not_touched() {
+        let dir = std::env::temp_dir().join(format!("vm_test_new_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("datos.db");
+        let path = path.to_str().unwrap();
+        {
+            let conn = open(path).unwrap();
+            conn.pragma_update(None, "user_version", latest_version() + 5).unwrap();
+        }
+        assert!(open(path).is_err());
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]
