@@ -194,7 +194,7 @@ struct SettingsView: View {
     }
 
     private func exportBackup() {
-        guard let json = model.mutate({ try $0.exportBackup(today: Fmt.today()) }),
+        guard let json = model.mutate(nil, { try $0.exportBackup(today: Fmt.today()) }),
               let url = Exporter.write(json, name: "vintage_manager_\(Fmt.today()).json") else { return }
         share = ShareItem(url: url)
         reload()
@@ -209,7 +209,7 @@ struct SettingsView: View {
             model.message = "No se pudo leer el archivo."
             return
         }
-        if let n = model.mutate({ try $0.importBackup(json: json) }) {
+        if let n = model.mutate(nil, { try $0.importBackup(json: json) }) {
             model.message = "Respaldo restaurado (\(n) registros)."
             reload()
         }
