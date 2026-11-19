@@ -10,6 +10,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 env:
   NDK_VERSION: 27.2.12479018
   CARGO_TERM_COLOR: always
@@ -51,11 +54,13 @@ jobs:
       - name: Instalar cargo-ndk
         run: cargo install cargo-ndk --locked
 
-      - uses: android-actions/setup-android@v3
-
       - name: Instalar NDK
         run: |
-          sdkmanager --install "ndk;${NDK_VERSION}"
+          if [ ! -d "${ANDROID_HOME}/ndk/${NDK_VERSION}" ]; then
+            SDKM="$(ls -d ${ANDROID_HOME}/cmdline-tools/*/bin | sort -V | tail -1)/sdkmanager"
+            yes | "$SDKM" --licenses > /dev/null || true
+            "$SDKM" --install "ndk;${NDK_VERSION}"
+          fi
           echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
 
       - uses: gradle/actions/setup-gradle@v4
@@ -72,10 +77,24 @@ jobs:
             if [ "$size" -gt 5242880 ]; then echo "::warning::$f supera 5 MB"; fi
           done
 
+      - name: Preparar instalador
+        run: cp app/build/outputs/apk/release/app-release.apk VintageManager.apk
+
       - uses: actions/upload-artifact@v4
         with:
-          name: vintage-manager-release-apk
-          path: app/build/outputs/apk/release/*.apk
+          name: VintageManager-apk
+          path: VintageManager.apk
+
+      - name: Publicar instalador (Release)
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Vintage Manager 1.0 (build ${{ github.run_number }})
+          body: |
+            Instalador para Android 8.0 o superior.
+            Descarga **VintageManager.apk**, ábrelo en el teléfono y acepta "instalar apps de origen desconocido".
+          files: VintageManager.apk
 
   instrumented-tests:
     name: Test instrumentado (emulador Android 14 x86_64)
@@ -106,11 +125,13 @@ jobs:
       - name: Instalar cargo-ndk
         run: cargo install cargo-ndk --locked
 
-      - uses: android-actions/setup-android@v3
-
       - name: Instalar NDK
         run: |
-          sdkmanager --install "ndk;${NDK_VERSION}"
+          if [ ! -d "${ANDROID_HOME}/ndk/${NDK_VERSION}" ]; then
+            SDKM="$(ls -d ${ANDROID_HOME}/cmdline-tools/*/bin | sort -V | tail -1)/sdkmanager"
+            yes | "$SDKM" --licenses > /dev/null || true
+            "$SDKM" --install "ndk;${NDK_VERSION}"
+          fi
           echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
 
       - uses: gradle/actions/setup-gradle@v4
