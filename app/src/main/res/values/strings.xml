@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Vintage Manager</string>
+    <string name="channel_critical_name">Alertas críticas</string>
+    <string name="channel_critical_desc">Impuestos por vencer, pagos vencidos y caja insuficiente.</string>
+    <string name="channel_summary_name">Resumen diario</string>
+    <string name="channel_summary_desc">Un solo resumen con los avisos importantes del día.</string>
+</resources>

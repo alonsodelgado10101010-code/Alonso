@@ -1,0 +1,17 @@
+# Gradle / Android
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+*.keystore
+!debug.keystore
+
+# Rust
+vintage_core/target/
+
+# Artefactos generados automáticamente por el build
+app/src/main/jniLibs/
