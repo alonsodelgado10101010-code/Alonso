@@ -1,0 +1,60 @@
+name: VintageManager
+options:
+  bundleIdPrefix: cl.vintagemanager
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""
+targets:
+  VintageManager:
+    type: application
+    platform: iOS
+    sources:
+      - path: VintageManager
+      - path: Generated/vintage_core.swift
+    dependencies:
+      - framework: Generated/VintageCore.xcframework
+        embed: false
+    info:
+      path: VintageManager/Info.plist
+      properties:
+        CFBundleDisplayName: Vintage Manager
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        ITSAppUsesNonExemptEncryption: false
+        NSCameraUsageDescription: Para fotografiar prendas, comprobantes y escanear códigos QR.
+        NSPhotoLibraryUsageDescription: Para agregar fotos de prendas y comprobantes.
+        NSFaceIDUsageDescription: Para desbloquear la app con Face ID.
+        UIBackgroundModes: [fetch, processing]
+        BGTaskSchedulerPermittedIdentifiers: [cl.vintagemanager.alerts]
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: cl.vintagemanager.app
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_BITCODE: NO
+  VintageManagerTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [VintageManagerTests]
+    dependencies:
+      - target: VintageManager
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  VintageManager:
+    build:
+      targets:
+        VintageManager: all
+    test:
+      targets: [VintageManagerTests]

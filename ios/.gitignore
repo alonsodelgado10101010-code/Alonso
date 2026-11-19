@@ -1,0 +1,6 @@
+Generated/
+*.xcodeproj/
+build/
+*.ipa
+Payload/
+VintageManager/Info.plist
