@@ -181,3 +181,39 @@ Además, el núcleo protege la base de datos:
   (`vintage_manager.db.pre-v<N>.bak`).
 - Si la base viene de una versión más nueva de la app, no se modifica.
 - El respaldo automático de Android (`allowBackup`) también guarda la base en la cuenta de Google.
+
+## iPhone (iOS 16 o superior)
+
+La app de iPhone usa **el mismo núcleo Rust** (impuestos, FEFO, alertas, base de datos), con una
+interfaz nativa en **SwiftUI**. Los bindings Swift se generan con UniFFI y el núcleo se empaqueta
+como `VintageCore.xcframework`.
+
+```
+ios/
+├── project.yml              # proyecto Xcode (XcodeGen)
+├── build-rust-ios.sh        # Rust → XCFramework + bindings Swift
+├── VintageManager/          # SwiftUI: Resumen · Finanzas · Inventario · Ajustes
+└── VintageManagerTests/     # pruebas: el núcleo carga y responde en iOS
+```
+
+Compilar en un Mac (Xcode 16+, Rust y `brew install xcodegen`):
+
+```bash
+./ios/build-rust-ios.sh
+```
+
+```bash
+cd ios && xcodegen generate && open VintageManager.xcodeproj
+```
+
+Funciones específicas de iPhone: notificaciones locales con acciones («Marcar como pagado»,
+«Posponer 1 día») usando el mismo motor anti-saturación, escaneo de QR con la cámara (VisionKit),
+fotos desde la cámara o la galería, Face ID / PIN, y exportación en PDF/CSV/JSON desde el menú
+Compartir. Los datos viven en *Application Support*: iOS los conserva al actualizar la app.
+
+**Instalación:** Apple no permite instalar apps fuera del App Store sin firmarlas. El CI genera
+`VintageManager-iPhone.ipa` sin firmar, que se puede instalar:
+
+- con **Sideloadly** o **AltStore** desde un computador, usando tu Apple ID (gratis; la app se
+  renueva cada 7 días), o
+- con **TestFlight / App Store**, que requiere una cuenta de Apple Developer (USD 99 al año).
